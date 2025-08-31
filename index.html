@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>即時匯率轉換器</title>
+    <title>Real-time Currency Converter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -157,8 +157,8 @@
 
     <div class="converter-container">
         <header>
-            <h1>即時匯率轉換器</h1>
-            <p>在任何一個輸入框中輸入金額，即可即時轉換其他貨幣。</p>
+            <h1>Real-time Currency Converter</h1>
+            <p>Enter an amount in any input box to instantly convert to other currencies.</p>
         </header>
 
         <main id="main-container" class="main-content">
@@ -166,7 +166,10 @@
         </main>
 
         <footer>
-            <p>匯率資料來源： <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a></p>
+            <p>Data from <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
+                for reference only, actual rates may vary.
+            </p>
+            <p>Copyright © 2025 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a></p>
         </footer>
     </div>
 
@@ -204,7 +207,7 @@
                     const data = await response.json();
 
                     if (data.result !== 'success') {
-                        throw new Error('無法獲取貨幣列表');
+                        throw new Error('Currency data fetch failed');
                     }
 
                     const currencyCodes = Object.keys(data.rates);
@@ -220,8 +223,8 @@
                     });
 
                 } catch (error) {
-                    console.error("載入貨幣資料時發生錯誤:", error.message);
-                    mainContainer.innerHTML = `<p style="color: red;">無法載入貨幣資料。<br>詳細資訊：${error.message}</p>`;
+                    console.error("Currency data fetch failed:", error.message);
+                    mainContainer.innerHTML = `<p style="color: red;">Failed to load currency data.<br>Details: ${error.message}</p>`;
                 }
             }
 
@@ -254,7 +257,7 @@
                     const data = await response.json();
 
                     if (data.result !== 'success') {
-                        throw new Error('無法獲取匯率');
+                        throw new Error('Failed to fetch exchange rates');
                     }
 
                     const rates = data.rates;
@@ -271,7 +274,7 @@
                     });
 
                 } catch (error) {
-                    console.error("轉換錯誤:", error.message);
+                    console.error("Conversion error:", error.message);
                 } finally {
                     isUpdating = false;
                 }
