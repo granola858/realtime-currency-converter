@@ -57,13 +57,14 @@
         .main-content {
             display: grid;
             grid-template-columns: 1fr;
-            /* 手機上單欄 */
             gap: 20px;
         }
 
         /* 每個貨幣輸入組 */
         .currency-group {
             display: flex;
+            align-items: center;
+            /* 垂直置中 */
             background-color: #f9f9f9;
             border-radius: 12px;
             overflow: hidden;
@@ -76,25 +77,59 @@
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
         }
 
+        /* 新增：鎖定按鈕樣式 */
+        .lock-btn {
+            background: none;
+            border: none;
+            padding: 0 10px 0 15px;
+            cursor: pointer;
+            color: #95a5a6;
+            /* 預設灰色 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s ease, opacity 0.3s ease;
+        }
+
+        .lock-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        /* 鎖定狀態：紅色 */
+        .lock-btn.active {
+            color: #e74c3c;
+        }
+
+        /* 禁用狀態：泛灰且不能按 */
+        .lock-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.3;
+        }
+
         /* 金額輸入框 */
         .currency-input {
             width: 100%;
-            padding: 15px;
+            padding: 15px 10px;
             font-size: 1.2rem;
             border: none;
             outline: none;
             background-color: transparent;
             -moz-appearance: textfield;
-            /* 隱藏 Firefox 的數字輸入框箭頭 */
+        }
+
+        /* 當輸入框被鎖定(唯讀)時的樣式 */
+        .currency-input[readonly] {
+            color: #7f8c8d;
+            cursor: default;
         }
 
         .currency-input::-webkit-outer-spin-button,
         .currency-input::-webkit-inner-spin-button {
             -webkit-appearance: none;
-            /* 隱藏 Chrome, Safari 的數字輸入框箭頭 */
             margin: 0;
         }
-
 
         /* 貨幣下拉選單 */
         .currency-select {
@@ -107,10 +142,19 @@
             border-left: 1px solid #e0e0e0;
             font-weight: 500;
             transition: background-color 0.3s ease;
+            height: 100%;
+            /* 確保填滿高度 */
         }
 
         .currency-select:hover {
             background-color: #dfe4e7;
+        }
+
+        /* 當被鎖定時，下拉選單也禁止修改 (針對被鎖定的那一格) */
+        .currency-select:disabled {
+            background-color: #f0f0f0;
+            color: #999;
+            cursor: not-allowed;
         }
 
         /* 頁腳 */
@@ -131,16 +175,13 @@
             color: #2980b9;
         }
 
-        /* RWD - 響應式網頁設計 */
-        /* 平板裝置 */
+        /* RWD */
         @media (min-width: 768px) {
             .main-content {
-                /* 兩欄式佈局 */
                 grid-template-columns: repeat(2, 1fr);
             }
         }
 
-        /* 桌面裝置 */
         @media (min-width: 1024px) {
             .converter-container {
                 padding: 40px 50px;
@@ -158,18 +199,17 @@
     <div class="converter-container">
         <header>
             <h1>Real-time Currency Converter</h1>
-            <p>Enter an amount in any input box to instantly convert to other currencies.</p>
+            <p>Click the lock icon to fix an amount, then change other currencies to compare.</p>
         </header>
 
         <main id="main-container" class="main-content">
-            <!-- JavaScript 會動態生成六個輸入組 -->
         </main>
 
         <footer>
             <p>Data from <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
                 for reference only, actual rates may vary.
             </p>
-            <p>Copyright © 2025 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a></p>
+            <p>Copyright © 2026 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a></p>
         </footer>
     </div>
 
@@ -181,24 +221,78 @@
             const currencyElements = [];
             const totalConverters = 6;
             let isUpdating = false;
+            // 新增：追蹤目前被鎖定的索引，null 代表沒有鎖定
+            let lockedIndex = null;
             const defaultCurrencies = ['TWD', 'JPY', 'USD', 'THB', 'VND', 'HKD'];
+
+            // 鎖頭圖示 SVG (開鎖與上鎖)
+            const lockIconSVG = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/>
+                </svg>`;
 
             function createConverterElement(index) {
                 const group = document.createElement('div');
                 group.className = 'currency-group';
                 group.dataset.id = index;
+
+                // 1. 建立鎖定按鈕
+                const lockBtn = document.createElement('button');
+                lockBtn.className = 'lock-btn';
+                lockBtn.innerHTML = lockIconSVG;
+                lockBtn.title = "Lock Amount";
+                lockBtn.dataset.id = index;
+
+                // 2. 建立輸入框
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.inputMode = 'decimal';
                 input.className = 'currency-input';
                 input.placeholder = '0.00';
                 input.dataset.id = index;
+
+                // 3. 建立下拉選單
                 const select = document.createElement('select');
                 select.className = 'currency-select';
                 select.dataset.id = index;
+
+                group.appendChild(lockBtn); // 放入按鈕
                 group.appendChild(input);
                 group.appendChild(select);
-                return { group, input, select };
+
+                return { group, input, select, lockBtn };
+            }
+
+            // 更新鎖定介面狀態
+            function updateLockUI() {
+                currencyElements.forEach((el, index) => {
+                    const isLockedRow = (index === lockedIndex);
+                    const isAnyLocked = (lockedIndex !== null);
+
+                    // 處理鎖定按鈕樣式
+                    if (isLockedRow) {
+                        el.lockBtn.classList.add('active'); // 變紅
+                        el.lockBtn.disabled = false; // 可以點擊以解鎖
+                    } else {
+                        el.lockBtn.classList.remove('active');
+                        // 如果有任何一個被鎖定了，其他的按鈕就不能按
+                        el.lockBtn.disabled = isAnyLocked;
+                    }
+
+                    // 處理輸入框唯讀狀態
+                    if (isLockedRow) {
+                        el.input.removeAttribute('readonly'); // 鎖定的那格可以是被輸入的來源(雖然邏輯上固定，但保持可讀性)
+                        el.select.disabled = true; // 鎖定格連幣種都不能換，確保基準不變
+                    } else {
+                        // 如果有任何鎖定，其他格子變唯讀
+                        if (isAnyLocked) {
+                            el.input.setAttribute('readonly', true);
+                        } else {
+                            el.input.removeAttribute('readonly');
+                        }
+                        el.select.disabled = false; // 其他格子永遠可以換幣種
+                    }
+                });
             }
 
             async function populateCurrencyOptions() {
@@ -228,23 +322,23 @@
                 }
             }
 
-            async function handleConversion(e) {
+            async function handleConversion(sourceIndex) {
                 if (isUpdating) return;
 
-                const sourceElement = e.target;
-                const sourceIndex = parseInt(sourceElement.dataset.id, 10);
-                const sourceInput = currencyElements[sourceIndex].input;
-                const sourceSelect = currencyElements[sourceIndex].select;
+                // 如果有鎖定格，強制來源為鎖定格；否則使用觸發事件的格子
+                const effectiveSourceIndex = (lockedIndex !== null) ? lockedIndex : sourceIndex;
+
+                const sourceInput = currencyElements[effectiveSourceIndex].input;
+                const sourceSelect = currencyElements[effectiveSourceIndex].select;
 
                 const amount = parseFloat(sourceInput.value.replace(/[^0-9.-]+/g, ""));
-
-                // **修正**：將遺失的 baseCurrency 宣告加回來
                 const baseCurrency = sourceSelect.value;
 
                 if (isNaN(amount) || amount <= 0) {
+                    // 如果金額無效，清除其他格（如果是鎖定狀態，則不清除鎖定格本身）
                     isUpdating = true;
                     currencyElements.forEach((el, index) => {
-                        if (index !== sourceIndex) {
+                        if (index !== effectiveSourceIndex) {
                             el.input.value = '';
                         }
                     });
@@ -253,6 +347,7 @@
                 }
 
                 try {
+                    // 取得匯率
                     const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`);
                     const data = await response.json();
 
@@ -261,11 +356,11 @@
                     }
 
                     const rates = data.rates;
-
                     isUpdating = true;
 
                     currencyElements.forEach((el, index) => {
-                        if (index !== sourceIndex) {
+                        // 更新除了「來源格」以外的所有格子
+                        if (index !== effectiveSourceIndex) {
                             const targetCurrency = el.select.value;
                             const rate = rates[targetCurrency];
                             const convertedAmount = amount * rate;
@@ -282,18 +377,41 @@
 
             async function init() {
                 for (let i = 0; i < totalConverters; i++) {
-                    const { group, input, select } = createConverterElement(i);
+                    const { group, input, select, lockBtn } = createConverterElement(i);
                     mainContainer.appendChild(group);
-                    currencyElements.push({ input, select });
+                    currencyElements.push({ input, select, lockBtn });
 
-                    input.addEventListener('input', handleConversion);
-                    select.addEventListener('change', (e) => {
-                        const correspondingInput = currencyElements[i].input;
-                        const inputEvent = new Event('input', { bubbles: true });
-                        correspondingInput.dispatchEvent(inputEvent);
+                    // 1. 鎖定按鈕事件
+                    lockBtn.addEventListener('click', () => {
+                        if (lockedIndex === i) {
+                            lockedIndex = null; // 解鎖
+                        } else {
+                            lockedIndex = i; // 鎖定當前
+                            // 鎖定時，強制以這格的數值刷新其他格
+                            handleConversion(i);
+                        }
+                        updateLockUI();
                     });
 
+                    // 2. 輸入框輸入事件
+                    input.addEventListener('input', (e) => {
+                        // 如果有鎖定，且嘗試輸入的不是鎖定格，則忽略 (理論上 readonly 會擋住，但做雙重保險)
+                        if (lockedIndex !== null && lockedIndex !== i) return;
+                        handleConversion(i);
+                    });
+
+                    // 3. 下拉選單改變事件
+                    select.addEventListener('change', (e) => {
+                        // 當幣種改變時，重新計算
+                        // 如果現在是鎖定模式，handleConversion 會自動抓取鎖定格的數值來算這一格
+                        handleConversion(i);
+                    });
+
+                    // 4. 格式化數值 (Focus/Blur)
                     input.addEventListener('focus', (e) => {
+                        // 如果被鎖定且不是鎖定來源，不處理
+                        if (lockedIndex !== null && lockedIndex !== i) return;
+
                         if (e.target.value) {
                             isUpdating = true;
                             e.target.value = e.target.value.replace(/,/g, '');
@@ -302,6 +420,9 @@
                     });
 
                     input.addEventListener('blur', (e) => {
+                        // 如果被鎖定且不是鎖定來源，不處理
+                        if (lockedIndex !== null && lockedIndex !== i) return;
+
                         if (e.target.value) {
                             const num = parseFloat(e.target.value.replace(/,/g, ''));
                             if (!isNaN(num)) {
@@ -314,6 +435,7 @@
                 }
 
                 await populateCurrencyOptions();
+                updateLockUI(); // 初始化介面狀態
             }
 
             init();
