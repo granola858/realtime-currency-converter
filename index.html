@@ -63,8 +63,7 @@
         /* 每個貨幣輸入組 */
         .currency-group {
             display: flex;
-            align-items: center;
-            /* 垂直置中 */
+            align-items: stretch;
             background-color: #f9f9f9;
             border-radius: 12px;
             overflow: hidden;
@@ -77,41 +76,11 @@
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
         }
 
-        /* 新增：鎖定按鈕樣式 */
-        .lock-btn {
-            background: none;
-            border: none;
-            padding: 0 10px 0 15px;
-            cursor: pointer;
-            color: #95a5a6;
-            /* 預設灰色 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.3s ease, opacity 0.3s ease;
-        }
-
-        .lock-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
-
-        /* 鎖定狀態：紅色 */
-        .lock-btn.active {
-            color: #e74c3c;
-        }
-
-        /* 禁用狀態：泛灰且不能按 */
-        .lock-btn:disabled {
-            cursor: not-allowed;
-            opacity: 0.3;
-        }
-
         /* 金額輸入框 */
         .currency-input {
-            width: 100%;
-            padding: 15px 10px;
+            flex: 1;
+            width: auto;
+            padding: 15px 15px;
             font-size: 1.2rem;
             border: none;
             outline: none;
@@ -119,9 +88,8 @@
             -moz-appearance: textfield;
         }
 
-        /* 當輸入框被鎖定(唯讀)時的樣式 */
         .currency-input[readonly] {
-            color: #7f8c8d;
+            color: #95a5a6;
             cursor: default;
         }
 
@@ -131,30 +99,94 @@
             margin: 0;
         }
 
+        /* --- 鎖定按鈕核心樣式 --- */
+        .lock-btn {
+            background: #e9ecef;
+            border: none;
+            padding: 0;
+            width: 44px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border-left: 1px solid #e0e0e0;
+            color: #27ae60;
+            /* 預設綠色 */
+            overflow: hidden;
+            /* 確保不出界，但現在 SVG 內縮了所以沒問題 */
+        }
+
+        /* SVG 設定 */
+        .lock-btn svg {
+            width: 28px;
+            /* 稍微加大 SVG 容器，配合 viewBox 調整 */
+            height: 28px;
+            fill: currentColor;
+            display: block;
+        }
+
+        /* --- 擬物化動畫關鍵 --- */
+
+        .lock-shackle {
+            transform-origin: 17px 11px;
+            /* 設定旋轉支點 */
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 狀態 A: 預設 (開啟) 
+           修正：因為 viewBox 拉遠了，這裡的位移可以大膽一點 */
+        .lock-btn .lock-shackle {
+            /* 向上提 5px, 往旁邊轉 35度 */
+            transform: translateY(-5px) rotate(35deg);
+        }
+
+        /* 狀態 B: 鎖定 (紅色) */
+        .lock-btn.active {
+            color: #e74c3c;
+            background-color: #ffeaea;
+        }
+
+        .lock-btn.active .lock-shackle {
+            transform: translateY(0) rotate(0deg);
+        }
+
+        /* 狀態 C: 禁用 (灰色) */
+        .lock-btn:disabled {
+            cursor: not-allowed;
+            color: #bdc3c7;
+            background-color: #f0f0f0;
+        }
+
+        .lock-btn:disabled .lock-shackle {
+            transform: translateY(0) rotate(0deg);
+        }
+
         /* 貨幣下拉選單 */
         .currency-select {
-            padding: 15px 10px;
+            padding: 0 20px 0 10px;
             font-size: 1rem;
             border: none;
             background-color: #e9ecef;
             outline: none;
             cursor: pointer;
-            border-left: 1px solid #e0e0e0;
             font-weight: 500;
             transition: background-color 0.3s ease;
-            height: 100%;
-            /* 確保填滿高度 */
+            border-left: none;
         }
 
         .currency-select:hover {
             background-color: #dfe4e7;
         }
 
-        /* 當被鎖定時，下拉選單也禁止修改 (針對被鎖定的那一格) */
         .currency-select:disabled {
             background-color: #f0f0f0;
             color: #999;
             cursor: not-allowed;
+        }
+
+        .lock-btn:hover:not(:disabled) {
+            background-color: #dfe4e7;
         }
 
         /* 頁腳 */
@@ -199,7 +231,7 @@
     <div class="converter-container">
         <header>
             <h1>Real-time Currency Converter</h1>
-            <p>Click the lock icon to fix an amount, then change other currencies to compare.</p>
+            <p>Click the lock icon to fix a currency, then change others to compare.</p>
         </header>
 
         <main id="main-container" class="main-content">
@@ -209,7 +241,7 @@
             <p>Data from <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
                 for reference only, actual rates may vary.
             </p>
-            <p>Copyright © 2026 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a></p>
+            <p>Copyright © 2025 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a></p>
         </footer>
     </div>
 
@@ -221,14 +253,17 @@
             const currencyElements = [];
             const totalConverters = 6;
             let isUpdating = false;
-            // 新增：追蹤目前被鎖定的索引，null 代表沒有鎖定
             let lockedIndex = null;
             const defaultCurrencies = ['TWD', 'JPY', 'USD', 'THB', 'VND', 'HKD'];
 
-            // 鎖頭圖示 SVG (開鎖與上鎖)
-            const lockIconSVG = `
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/>
+            // 修正：調整 viewBox="-3 -8 30 32"
+            // 這會讓可視範圍往上(-8)和往左(-3)擴展，並且總寬度為30，高度32
+            // 這樣鎖頭往上跳的時候，上方就有空間顯示，不會被切掉了
+            const splitLockSVG = `
+                <svg viewBox="-3 -8 30 32">
+                    <path class="lock-shackle" d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    <path class="lock-body" d="M6 11h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" fill="currentColor" />
+                    <circle cx="12" cy="16" r="1.5" fill="#f0f2f5" />
                 </svg>`;
 
             function createConverterElement(index) {
@@ -236,14 +271,6 @@
                 group.className = 'currency-group';
                 group.dataset.id = index;
 
-                // 1. 建立鎖定按鈕
-                const lockBtn = document.createElement('button');
-                lockBtn.className = 'lock-btn';
-                lockBtn.innerHTML = lockIconSVG;
-                lockBtn.title = "Lock Amount";
-                lockBtn.dataset.id = index;
-
-                // 2. 建立輸入框
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.inputMode = 'decimal';
@@ -251,46 +278,51 @@
                 input.placeholder = '0.00';
                 input.dataset.id = index;
 
-                // 3. 建立下拉選單
+                const lockBtn = document.createElement('button');
+                lockBtn.className = 'lock-btn';
+                lockBtn.innerHTML = splitLockSVG;
+                lockBtn.title = "Lock Currency";
+                lockBtn.dataset.id = index;
+
                 const select = document.createElement('select');
                 select.className = 'currency-select';
                 select.dataset.id = index;
 
-                group.appendChild(lockBtn); // 放入按鈕
                 group.appendChild(input);
+                group.appendChild(lockBtn);
                 group.appendChild(select);
 
                 return { group, input, select, lockBtn };
             }
 
-            // 更新鎖定介面狀態
             function updateLockUI() {
                 currencyElements.forEach((el, index) => {
                     const isLockedRow = (index === lockedIndex);
                     const isAnyLocked = (lockedIndex !== null);
 
-                    // 處理鎖定按鈕樣式
                     if (isLockedRow) {
-                        el.lockBtn.classList.add('active'); // 變紅
-                        el.lockBtn.disabled = false; // 可以點擊以解鎖
+                        el.lockBtn.classList.add('active');
+                        el.lockBtn.disabled = false;
                     } else {
                         el.lockBtn.classList.remove('active');
-                        // 如果有任何一個被鎖定了，其他的按鈕就不能按
-                        el.lockBtn.disabled = isAnyLocked;
+
+                        if (isAnyLocked) {
+                            el.lockBtn.disabled = true;
+                        } else {
+                            el.lockBtn.disabled = false;
+                        }
                     }
 
-                    // 處理輸入框唯讀狀態
                     if (isLockedRow) {
-                        el.input.removeAttribute('readonly'); // 鎖定的那格可以是被輸入的來源(雖然邏輯上固定，但保持可讀性)
-                        el.select.disabled = true; // 鎖定格連幣種都不能換，確保基準不變
+                        el.input.removeAttribute('readonly');
+                        el.select.disabled = true;
                     } else {
-                        // 如果有任何鎖定，其他格子變唯讀
                         if (isAnyLocked) {
                             el.input.setAttribute('readonly', true);
                         } else {
                             el.input.removeAttribute('readonly');
                         }
-                        el.select.disabled = false; // 其他格子永遠可以換幣種
+                        el.select.disabled = false;
                     }
                 });
             }
@@ -325,7 +357,6 @@
             async function handleConversion(sourceIndex) {
                 if (isUpdating) return;
 
-                // 如果有鎖定格，強制來源為鎖定格；否則使用觸發事件的格子
                 const effectiveSourceIndex = (lockedIndex !== null) ? lockedIndex : sourceIndex;
 
                 const sourceInput = currencyElements[effectiveSourceIndex].input;
@@ -335,7 +366,6 @@
                 const baseCurrency = sourceSelect.value;
 
                 if (isNaN(amount) || amount <= 0) {
-                    // 如果金額無效，清除其他格（如果是鎖定狀態，則不清除鎖定格本身）
                     isUpdating = true;
                     currencyElements.forEach((el, index) => {
                         if (index !== effectiveSourceIndex) {
@@ -347,7 +377,6 @@
                 }
 
                 try {
-                    // 取得匯率
                     const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`);
                     const data = await response.json();
 
@@ -359,7 +388,6 @@
                     isUpdating = true;
 
                     currencyElements.forEach((el, index) => {
-                        // 更新除了「來源格」以外的所有格子
                         if (index !== effectiveSourceIndex) {
                             const targetCurrency = el.select.value;
                             const rate = rates[targetCurrency];
@@ -381,35 +409,26 @@
                     mainContainer.appendChild(group);
                     currencyElements.push({ input, select, lockBtn });
 
-                    // 1. 鎖定按鈕事件
                     lockBtn.addEventListener('click', () => {
                         if (lockedIndex === i) {
-                            lockedIndex = null; // 解鎖
+                            lockedIndex = null;
                         } else {
-                            lockedIndex = i; // 鎖定當前
-                            // 鎖定時，強制以這格的數值刷新其他格
+                            lockedIndex = i;
                             handleConversion(i);
                         }
                         updateLockUI();
                     });
 
-                    // 2. 輸入框輸入事件
                     input.addEventListener('input', (e) => {
-                        // 如果有鎖定，且嘗試輸入的不是鎖定格，則忽略 (理論上 readonly 會擋住，但做雙重保險)
                         if (lockedIndex !== null && lockedIndex !== i) return;
                         handleConversion(i);
                     });
 
-                    // 3. 下拉選單改變事件
                     select.addEventListener('change', (e) => {
-                        // 當幣種改變時，重新計算
-                        // 如果現在是鎖定模式，handleConversion 會自動抓取鎖定格的數值來算這一格
                         handleConversion(i);
                     });
 
-                    // 4. 格式化數值 (Focus/Blur)
                     input.addEventListener('focus', (e) => {
-                        // 如果被鎖定且不是鎖定來源，不處理
                         if (lockedIndex !== null && lockedIndex !== i) return;
 
                         if (e.target.value) {
@@ -420,7 +439,6 @@
                     });
 
                     input.addEventListener('blur', (e) => {
-                        // 如果被鎖定且不是鎖定來源，不處理
                         if (lockedIndex !== null && lockedIndex !== i) return;
 
                         if (e.target.value) {
@@ -435,7 +453,7 @@
                 }
 
                 await populateCurrencyOptions();
-                updateLockUI(); // 初始化介面狀態
+                updateLockUI();
             }
 
             init();
