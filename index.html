@@ -111,55 +111,75 @@
             justify-content: center;
             transition: all 0.3s ease;
             border-left: 1px solid #e0e0e0;
+
+            /* 預設顏色 (開啟狀態)：綠色 */
             color: #27ae60;
-            /* 預設綠色 */
-            overflow: hidden;
-            /* 確保不出界，但現在 SVG 內縮了所以沒問題 */
+
+            /* 隱藏超出的部分，以免旋轉時擋到其他元件，
+               但要小心 viewBox 設定，這裡先拿掉 hidden 以免切到鎖頭 */
+            /* overflow: hidden; */
         }
 
         /* SVG 設定 */
         .lock-btn svg {
-            width: 28px;
-            /* 稍微加大 SVG 容器，配合 viewBox 調整 */
-            height: 28px;
+            width: 26px;
+            /* 配合實心圖標的大小 */
+            height: 26px;
             fill: currentColor;
+            /* 鎖身使用當前字體顏色 */
             display: block;
         }
 
-        /* --- 擬物化動畫關鍵 --- */
+        /* --- 實心鎖頭動畫核心 --- */
 
         .lock-shackle {
-            transform-origin: 17px 11px;
-            /* 設定旋轉支點 */
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            /* 1. 設定顏色 */
+            fill: none;
+            /* 鎖環中間是空的 */
+            stroke: currentColor;
+            /* 線條顏色 */
+            stroke-width: 3.5;
+            /* 線條加粗，模仿實心圖示 */
+            stroke-linecap: round;
+            /* 端點圓角 */
+
+            /* 2. 設定旋轉軸心
+               我們把軸心設在右腳的底部 (x=16, y=11)
+            */
+            transform-origin: 16px 11px;
+
+            /* 3. 動畫過渡 */
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 狀態 A: 預設 (開啟) 
-           修正：因為 viewBox 拉遠了，這裡的位移可以大膽一點 */
+        /* 狀態 A: 預設 (開啟) - 模仿 lock-open-alt.png
+           動作：以右腳為軸心，向右旋轉 45 度
+        */
         .lock-btn .lock-shackle {
-            /* 向上提 5px, 往旁邊轉 35度 */
-            transform: translateY(-5px) rotate(35deg);
+            transform: rotate(45deg);
         }
 
-        /* 狀態 B: 鎖定 (紅色) */
+        /* 狀態 B: 鎖定 (紅色) - 模仿 lock.png */
         .lock-btn.active {
             color: #e74c3c;
             background-color: #ffeaea;
         }
 
+        /* 鎖定時：旋轉歸零 (閉合) */
         .lock-btn.active .lock-shackle {
-            transform: translateY(0) rotate(0deg);
+            transform: rotate(0deg);
         }
 
-        /* 狀態 C: 禁用 (灰色) */
+        /* 狀態 C: 禁用 (灰色) - 模仿 lock.png */
         .lock-btn:disabled {
             cursor: not-allowed;
             color: #bdc3c7;
             background-color: #f0f0f0;
         }
 
+        /* 禁用時：旋轉歸零 (閉合) */
         .lock-btn:disabled .lock-shackle {
-            transform: translateY(0) rotate(0deg);
+            transform: rotate(0deg);
         }
 
         /* 貨幣下拉選單 */
@@ -256,14 +276,15 @@
             let lockedIndex = null;
             const defaultCurrencies = ['TWD', 'JPY', 'USD', 'THB', 'VND', 'HKD'];
 
-            // 修正：調整 viewBox="-3 -8 30 32"
-            // 這會讓可視範圍往上(-8)和往左(-3)擴展，並且總寬度為30，高度32
-            // 這樣鎖頭往上跳的時候，上方就有空間顯示，不會被切掉了
-            const splitLockSVG = `
-                <svg viewBox="-3 -8 30 32">
-                    <path class="lock-shackle" d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    <path class="lock-body" d="M6 11h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" fill="currentColor" />
-                    <circle cx="12" cy="16" r="1.5" fill="#f0f2f5" />
+            // 重新繪製的 SVG，對應您上傳的圖片風格
+            // viewBox -3 -5 30 30 提供足夠空間讓鎖頭旋轉不被切掉
+            const solidLockSVG = `
+                <svg viewBox="-3 -5 30 30">
+                   <path class="lock-body" d="M5 11 h14 a2 2 0 0 1 2 2 v7 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 v-7 a2 2 0 0 1 2-2 z" fill="currentColor" />
+                   
+                   <path class="lock-shackle" d="M8 11 V7 a4 4 0 0 1 8 0 v4" />
+                   
+                   <rect x="11" y="15" width="2" height="4" rx="1" fill="#ffffff" />
                 </svg>`;
 
             function createConverterElement(index) {
@@ -280,7 +301,7 @@
 
                 const lockBtn = document.createElement('button');
                 lockBtn.className = 'lock-btn';
-                lockBtn.innerHTML = splitLockSVG;
+                lockBtn.innerHTML = solidLockSVG;
                 lockBtn.title = "Lock Currency";
                 lockBtn.dataset.id = index;
 
