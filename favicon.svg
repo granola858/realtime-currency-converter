@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background: dark slate matching header color -->
+  <rect width="32" height="32" rx="6" fill="#2c3e50"/>
+
+  <!-- Top arrow: left → right (blue) -->
+  <line x1="5" y1="12" x2="20" y2="12" stroke="#3498db" stroke-width="2.6" stroke-linecap="round"/>
+  <polyline points="16,7.5 21,12 16,16.5" stroke="#3498db" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Bottom arrow: right → left (gold) -->
+  <line x1="27" y1="20" x2="12" y2="20" stroke="#f39c12" stroke-width="2.6" stroke-linecap="round"/>
+  <polyline points="16,15.5 11,20 16,24.5" stroke="#f39c12" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
