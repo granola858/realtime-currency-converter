@@ -54,7 +54,7 @@
             line-height: 1.3;
         }
 
-        header p {
+        .update-time {
             font-size: 0.9rem;
             color: #7f8c8d;
             padding: 0 10px;
@@ -236,6 +236,12 @@
             text-decoration: none;
         }
 
+        .status-message {
+            min-height: 1.2em;
+            margin-top: 8px;
+            color: #c0392b;
+        }
+
         /* --- RWD 響應式設計 --- */
 
         /* 平板以上 (大於 768px) */
@@ -257,7 +263,7 @@
                 font-size: 2.2rem;
             }
 
-            header p {
+            .update-time {
                 font-size: 1rem;
             }
 
@@ -289,28 +295,48 @@
     <div class="converter-container">
         <header>
             <h1>Real-time Converter</h1>
-            <p>Click the lock to fix a currency.</p>
+            <p id="last-updated" class="update-time">Provider rates last updated: --</p>
         </header>
 
         <main id="main-container" class="main-content">
         </main>
 
         <footer>
-            <p>Data from <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a><br>
+            <p>Data from <a href="https://www.exchangerate-api.com" target="_blank"
+                    rel="noreferrer">ExchangeRate-API</a>. Exchange rates are provided for informational purposes only
+                and may be delayed or inaccurate.<br>
                 Copyright © 2026 <a href="mailto:granola858@gmail.com" target="_blank">AYuanH</a>
             </p>
+            <p id="status-message" class="status-message" aria-live="polite"></p>
         </footer>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const API_URL = "https://open.er-api.com/v6/latest/USD";
+            const CACHE_TTL_MS = 60 * 1000;
+            const currencyFormatter = new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            const updateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZoneName: 'short'
+            });
 
             const mainContainer = document.getElementById('main-container');
+            const lastUpdatedElement = document.getElementById('last-updated');
+            const statusMessageElement = document.getElementById('status-message');
             const currencyElements = [];
+            const ratesCache = new Map();
+            const pendingRateRequests = new Map();
             const totalConverters = 6;
             let isUpdating = false;
             let lockedIndex = null;
+            let activeRequestId = 0;
             const defaultCurrencies = ['TWD', 'JPY', 'USD', 'THB', 'VND', 'HKD'];
 
             // 新版 SVG：細長風格
@@ -335,9 +361,11 @@
                 input.dataset.id = index;
 
                 const lockBtn = document.createElement('button');
+                lockBtn.type = 'button';
                 lockBtn.className = 'lock-btn';
                 lockBtn.innerHTML = slimLockSVG;
                 lockBtn.title = "Lock Currency";
+                lockBtn.setAttribute('aria-label', 'Lock currency row');
                 lockBtn.dataset.id = index;
 
                 const select = document.createElement('select');
@@ -349,6 +377,79 @@
                 group.appendChild(select);
 
                 return { group, input, select, lockBtn };
+            }
+
+            function setStatusMessage(message = '') {
+                statusMessageElement.textContent = message;
+            }
+
+            function updateLastUpdated(data) {
+                const timestamp = Number.isFinite(data?.time_last_update_unix)
+                    ? data.time_last_update_unix * 1000
+                    : Date.now();
+
+                lastUpdatedElement.textContent = `Provider rates last updated: ${updateTimeFormatter.format(timestamp)}`;
+            }
+
+            function parseAmount(value) {
+                const normalizedValue = value.replace(/,/g, '').trim();
+                if (!normalizedValue) {
+                    return NaN;
+                }
+
+                return Number(normalizedValue);
+            }
+
+            function formatAmount(value) {
+                return currencyFormatter.format(value);
+            }
+
+            function clearConvertedValues(sourceIndex) {
+                currencyElements.forEach((el, index) => {
+                    if (index !== sourceIndex) {
+                        el.input.value = '';
+                    }
+                });
+            }
+
+            async function fetchRates(baseCurrency) {
+                const cachedEntry = ratesCache.get(baseCurrency);
+                if (cachedEntry && (Date.now() - cachedEntry.fetchedAt) < CACHE_TTL_MS) {
+                    return cachedEntry.data;
+                }
+
+                const pendingRequest = pendingRateRequests.get(baseCurrency);
+                if (pendingRequest) {
+                    return pendingRequest;
+                }
+
+                const request = fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.result !== 'success') {
+                            throw new Error('Failed to fetch exchange rates');
+                        }
+
+                        ratesCache.set(baseCurrency, {
+                            data,
+                            fetchedAt: Date.now()
+                        });
+
+                        return data;
+                    })
+                    .finally(() => {
+                        pendingRateRequests.delete(baseCurrency);
+                    });
+
+                pendingRateRequests.set(baseCurrency, request);
+
+                return request;
             }
 
             function updateLockUI() {
@@ -385,12 +486,7 @@
 
             async function populateCurrencyOptions() {
                 try {
-                    const response = await fetch(API_URL);
-                    const data = await response.json();
-
-                    if (data.result !== 'success') {
-                        throw new Error('Currency data fetch failed');
-                    }
+                    const data = await fetchRates('USD');
 
                     const currencyCodes = Object.keys(data.rates);
                     const currencyOptions = currencyCodes.map(code =>
@@ -404,9 +500,13 @@
                         }
                     });
 
+                    updateLastUpdated(data);
+                    setStatusMessage('');
+
                 } catch (error) {
                     console.error("Currency data fetch failed:", error.message);
-                    mainContainer.innerHTML = `<p style="color: red; text-align:center;">Failed to load currency data.<br>Details: ${error.message}</p>`;
+                    mainContainer.innerHTML = '<p style="color: red; text-align:center;">Failed to load currency data. Please try again later.</p>';
+                    setStatusMessage('目前無法載入貨幣資料。');
                 }
             }
 
@@ -414,30 +514,27 @@
                 if (isUpdating) return;
 
                 const effectiveSourceIndex = (lockedIndex !== null) ? lockedIndex : sourceIndex;
+                const requestId = ++activeRequestId;
 
                 const sourceInput = currencyElements[effectiveSourceIndex].input;
                 const sourceSelect = currencyElements[effectiveSourceIndex].select;
 
-                const amount = parseFloat(sourceInput.value.replace(/[^0-9.-]+/g, ""));
+                const amount = parseAmount(sourceInput.value);
                 const baseCurrency = sourceSelect.value;
 
-                if (isNaN(amount) || amount <= 0) {
+                if (Number.isNaN(amount) || amount < 0) {
                     isUpdating = true;
-                    currencyElements.forEach((el, index) => {
-                        if (index !== effectiveSourceIndex) {
-                            el.input.value = '';
-                        }
-                    });
+                    clearConvertedValues(effectiveSourceIndex);
+                    setStatusMessage('');
                     isUpdating = false;
                     return;
                 }
 
                 try {
-                    const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`);
-                    const data = await response.json();
+                    const data = await fetchRates(baseCurrency);
 
-                    if (data.result !== 'success') {
-                        throw new Error('Failed to fetch exchange rates');
+                    if (requestId !== activeRequestId) {
+                        return;
                     }
 
                     const rates = data.rates;
@@ -447,12 +544,28 @@
                         if (index !== effectiveSourceIndex) {
                             const targetCurrency = el.select.value;
                             const rate = rates[targetCurrency];
+
+                            if (typeof rate !== 'number') {
+                                el.input.value = '';
+                                return;
+                            }
+
                             const convertedAmount = amount * rate;
-                            el.input.value = convertedAmount ? convertedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+                            el.input.value = formatAmount(convertedAmount);
                         }
                     });
 
+                    updateLastUpdated(data);
+                    setStatusMessage('');
+
                 } catch (error) {
+                    if (requestId !== activeRequestId) {
+                        return;
+                    }
+
+                    isUpdating = true;
+                    clearConvertedValues(effectiveSourceIndex);
+                    setStatusMessage('無法更新匯率，請稍後再試。');
                     console.error("Conversion error:", error.message);
                 } finally {
                     isUpdating = false;
@@ -501,7 +614,7 @@
                             const num = parseFloat(e.target.value.replace(/,/g, ''));
                             if (!isNaN(num)) {
                                 isUpdating = true;
-                                e.target.value = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                e.target.value = formatAmount(num);
                                 isUpdating = false;
                             }
                         }
