@@ -733,6 +733,24 @@
                 });
             }
 
+            function getActiveCurrencies() {
+                let savedCurrencies;
+                try {
+                    savedCurrencies = JSON.parse(localStorage.getItem('selectedCurrencies'));
+                } catch (e) {
+                    console.error("Failed to parse saved currencies", e);
+                }
+                if (Array.isArray(savedCurrencies) && savedCurrencies.length === totalConverters) {
+                    return savedCurrencies;
+                }
+                return [...defaultCurrencies];
+            }
+
+            function saveCurrenciesToLocalStorage() {
+                const currencies = currencyElements.map(el => el.select.value);
+                localStorage.setItem('selectedCurrencies', JSON.stringify(currencies));
+            }
+
             async function populateCurrencyOptions() {
                 try {
                     const data = await fetchRates('USD');
@@ -742,10 +760,12 @@
                         `<option value="${code}">${code}</option>`
                     ).join('');
 
+                    const activeCurrencies = getActiveCurrencies();
+
                     currencyElements.forEach(({ select }, index) => {
                         select.innerHTML = currencyOptions;
-                        if (index < defaultCurrencies.length) {
-                            select.value = defaultCurrencies[index];
+                        if (index < activeCurrencies.length) {
+                            select.value = activeCurrencies[index];
                         }
                     });
 
@@ -843,6 +863,7 @@
                     });
 
                     select.addEventListener('change', (e) => {
+                        saveCurrenciesToLocalStorage();
                         handleConversion(i);
                     });
 
