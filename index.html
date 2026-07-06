@@ -585,7 +585,6 @@
             const ratesCache = new Map();
             const pendingRateRequests = new Map();
             const totalConverters = 6;
-            const lockedCurrencyStorageKey = 'lockedCurrencyIndex';
             let isUpdating = false;
             let lockedIndex = null;
             let activeRequestId = 0;
@@ -708,25 +707,6 @@
                 pendingRateRequests.set(baseCurrency, request);
 
                 return request;
-            }
-
-            function getSavedLockedIndex() {
-                const savedLockedIndex = Number.parseInt(localStorage.getItem(lockedCurrencyStorageKey), 10);
-
-                if (Number.isInteger(savedLockedIndex) && savedLockedIndex >= 0 && savedLockedIndex < totalConverters) {
-                    return savedLockedIndex;
-                }
-
-                return null;
-            }
-
-            function saveLockedIndexToLocalStorage() {
-                if (lockedIndex === null) {
-                    localStorage.removeItem(lockedCurrencyStorageKey);
-                    return;
-                }
-
-                localStorage.setItem(lockedCurrencyStorageKey, String(lockedIndex));
             }
 
             function updateLockUI({ animate = false, previousLockedIndex = null } = {}) {
@@ -885,8 +865,6 @@
             }
 
             async function init() {
-                lockedIndex = getSavedLockedIndex();
-
                 for (let i = 0; i < totalConverters; i++) {
                     const { group, input, select, lockBtn } = createConverterElement(i);
                     mainContainer.appendChild(group);
@@ -902,7 +880,6 @@
                             handleConversion(i);
                         }
 
-                        saveLockedIndexToLocalStorage();
                         updateLockUI({ animate: true, previousLockedIndex });
                     });
 
