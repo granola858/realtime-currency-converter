@@ -114,6 +114,45 @@
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
         }
 
+        /* --- 清除按鈕樣式 --- */
+        .clear-btn {
+            background: none;
+            border: none;
+            width: 36px;
+            height: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #95a5a6;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease, color 0.1s ease;
+            flex-shrink: 0;
+        }
+
+        .clear-btn:hover {
+            color: #e74c3c;
+        }
+
+        .clear-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke-width: 2.5;
+        }
+
+        /* 當輸入組獲取焦點且非唯讀時，浮現清除按鈕 */
+        .currency-group:focus-within .clear-btn {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .currency-input[readonly]~.clear-btn {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
         /* 金額輸入框 */
         .currency-input {
             flex: 1;
@@ -394,6 +433,14 @@
             color: #6a7585;
         }
 
+        .dark .clear-btn {
+            color: #7f8c8d;
+        }
+
+        .dark .clear-btn:hover {
+            color: #e07070;
+        }
+
         .dark .lock-btn {
             background: #2c3050;
             border-left-color: #3a3f58;
@@ -614,6 +661,18 @@
                 input.placeholder = '0.00';
                 input.dataset.id = index;
 
+                const clearBtn = document.createElement('button');
+                clearBtn.type = 'button';
+                clearBtn.className = 'clear-btn';
+                clearBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>`;
+                clearBtn.title = "清除數值";
+                clearBtn.setAttribute('aria-label', 'Clear value');
+                clearBtn.dataset.id = index;
+
                 const lockBtn = document.createElement('button');
                 lockBtn.type = 'button';
                 lockBtn.className = 'lock-btn';
@@ -630,10 +689,11 @@
                 select.dataset.id = index;
 
                 group.appendChild(input);
+                group.appendChild(clearBtn);
                 group.appendChild(lockBtn);
                 group.appendChild(select);
 
-                return { group, input, select, lockBtn };
+                return { group, input, select, lockBtn, clearBtn };
             }
 
             function setStatusMessage(message = '') {
@@ -866,9 +926,16 @@
 
             async function init() {
                 for (let i = 0; i < totalConverters; i++) {
-                    const { group, input, select, lockBtn } = createConverterElement(i);
+                    const { group, input, select, lockBtn, clearBtn } = createConverterElement(i);
                     mainContainer.appendChild(group);
-                    currencyElements.push({ input, select, lockBtn });
+                    currencyElements.push({ input, select, lockBtn, clearBtn });
+
+                    clearBtn.addEventListener('click', () => {
+                        if (lockedIndex !== null && lockedIndex !== i) return;
+                        input.value = '';
+                        handleConversion(i);
+                        input.focus();
+                    });
 
                     lockBtn.addEventListener('click', () => {
                         const previousLockedIndex = lockedIndex;
