@@ -940,8 +940,10 @@
                     });
                 }
 
-                await populateCurrencyOptions();
+                // 在 await 之前同步呼叫，確保第一次 paint 就已是正確的鎖定狀態，
+                // 避免網路等待期間鎖頭閃爍或動畫誤播
                 updateLockUI();
+                await populateCurrencyOptions();
             }
 
             init();
